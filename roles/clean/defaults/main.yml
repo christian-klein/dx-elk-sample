@@ -1,0 +1,5 @@
+---
+docker_path_mac: /usr/local/bin/
+docker_config_dir: 
+docker_file: "compose.yaml"
+compose_project_name: "elk"

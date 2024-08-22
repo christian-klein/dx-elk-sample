@@ -1,0 +1,78 @@
+# ###############################################
+# ##      NFS                                  ##
+# ###############################################
+nfs: True
+nfs_share_mounts:
+  - path: "/mnt/elk"
+    location: "diskstation:/volume1/docker/elk"
+nfs_server: "10.0.0.11"
+# rsize=8192,wsize=8192,timeo=14,intr
+# nfs_opts: "nfsvers=4,nolock,soft,rw"
+nfs_opts: "nfsvers=4.1,nolock,soft,rw"
+nfs_path: "/volume1"
+
+# ###############################################
+# ##      DOCKER                               ##
+# ###############################################
+docker_config_dir: "/usr/src/docker/elk"
+docker_file: "docker-compose.yml"
+
+network_name: "elastic"
+docker_host: "docker"
+
+docker_config_dir: /usr/src/docker/elk
+docker_user: docker
+docker_group: docker
+
+compose_project_name: "elk"
+
+
+# ###############################################
+# ##      ELK - GENERAL                        ##
+# ###############################################
+
+version: "8.14.3"
+
+cluster_name: "elk-cluster"
+
+# Set to 'basic' or 'trial' to automatically start the 30-day trial
+license: "basic"
+
+encryption_key: "c34d38b3a14956121ff2170e5030b471551370178f43e5626eec58b04a30fae2"
+
+# ###############################################
+# ##      ELASTIC SEARCH                       ##
+# ###############################################
+elastic_hostname: "es01"
+elastic_port: "9200"
+elastic_mem_limit: "1073741824"
+
+# ###############################################
+# ##      KIBANA                               ##
+# ###############################################
+kibana_hostname: "kibana"
+kibana_port: "5601"
+kibana_mem_limit: "1073741824"
+
+# ###############################################
+# ##      LOGSTASH                             ##
+# ###############################################
+logstash_hostname: "logstash"
+logstash_port: "5044"
+logstash_mem_limit: "1073741824"
+
+# ###############################################
+# ##      FILEBEAT                             ##
+# ###############################################
+filebeat_hostname: "fb01"
+filebeat_conf_dir: "/usr/share/filebeat"
+
+# ###############################################
+# ##      DX                                   ##
+# ###############################################
+dx_profile_dir: /opt/HCL/wp_profile
+dx_cell: dockerCell
+dx_node: dockerNode
+dx_server: WebSphere_Portal
+dx_logs_dir: "{{dx_profile_dir}}/logs/{{dx_server}}"
+dx_hpel_log: "{{dx_logs_dir}}/hpelOutput.log"

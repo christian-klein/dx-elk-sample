@@ -1,0 +1,43 @@
+- name: "Create loggenerator directory"
+  file:
+    path: "{{docker_config_dir}}/loggenerator"
+    state: directory
+    owner: docker
+    group: docker
+    mode: 0775
+    recurse: yes
+  tags:
+    - prep
+    - loggenerator
+
+- name: "Copy log generator files"
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: docker
+    group: docker
+    mode: 0775
+  loop:
+    - src: '../files/loggenerator/loggenerator.sh'
+      dest: "{{ docker_config_dir }}/loggenerator/loggenerator.sh"
+    - src: '../files/loggenerator/Dockerfile'
+      dest: "{{ docker_config_dir }}/loggenerator/Dockerfile"
+  notify: restart loggenerator
+  tags:
+    - prep
+    - loggenerator
+
+- name: "Generate log generator template files"
+  template:
+    src: "{{item.src}}"
+    dest: "{{item.dest}}"
+    owner: docker
+    group: docker
+    mode: 0775
+  loop:
+    - { src: '../templates/docker-loggenerator.yml.j2', dest: "{{docker_config_dir}}/docker-loggenerator.yml" }
+  notify: restart loggenerator
+  tags:
+    - prep
+    - loggenerator
+

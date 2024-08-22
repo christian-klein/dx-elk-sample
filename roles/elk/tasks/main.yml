@@ -1,0 +1,74 @@
+---
+- name: Script Start
+  debug:
+    msg: "Timestamp: {{ ansible_date_time.iso8601 }}"
+  tags:
+    - elk
+    - dx
+    - nfs
+    - test
+    - prep
+
+- name: "DX | Install python packages"
+  ansible.builtin.pip:
+    name: "{{ item }}"
+  loop:
+    - requests
+    - pyOpenSSL
+  tags:
+    - elk
+    - dx
+    - nfs
+    - test
+    - prep
+    
+- name: Log into private registry
+  community.docker.docker_login:
+    registry_url: "{{ dx_docker_registry }}"
+    username: "{{ dx_registry_credentials.user }}"
+    password: "{{ dx_registry_credentials.password }}"
+    reauthorize: true
+  tags:
+    - prep
+    - dx
+    - test
+
+
+- name:  Include nfs share tasks 
+  include_tasks: nfs-share.yml
+  when: nfs_mount
+  tags:
+    -  nfs
+
+- name:  Include elk core setup tasks 
+  include_tasks: elk-core.yml
+  tags:
+    - elk
+    - prep
+
+- name: "Copy file cleanup script"
+  template:
+    src: templates/clear-mounts.sh.j2
+    dest: "{{docker_config_dir}}/clear-mounts.sh"
+    owner: "{{ docker_user }}"
+    group: "{{ docker_group }}"
+    mode: 0775
+  tags:
+    - prep
+
+- name:  Include dx core setup tasks 
+  include_tasks: dx-core.yml
+  tags:
+    - dx
+    - prep
+    - test
+
+- name: Script End
+  debug:
+    msg: "Timestamp: {{ ansible_date_time.iso8601 }}"
+  tags:
+    - elk
+    - dx
+    - nfs
+    - test
+    - prep

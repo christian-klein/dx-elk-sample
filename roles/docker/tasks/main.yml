@@ -1,0 +1,28 @@
+---
+# - debug:
+#     msg: "{{ansible_facts['distribution']}}"
+# - include: packages-redhat.yml
+#   when: ansible_os_family == "RedHat"
+
+- debug:
+    msg: "{{ansible_os_family}}"
+- block:
+  - name:  MACOS | Ensure docker is running
+    ansible.builtin.shell: "/usr/local/bin/docker ps"
+    register: ret
+    failed_when: > 
+      (ret.stderr != '')
+    changed_when: False
+    args:
+      executable: /bin/zsh
+  when: ansible_os_family == "Darwin"
+
+- name: Ensure docker deamon is running
+  service:
+    name: docker
+    state: started
+  when: not ansible_os_family == "Darwin"
+
+# - name: Create docker network
+#   docker_network:
+#     name: "{{ network_name }}"

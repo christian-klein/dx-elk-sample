@@ -1,0 +1,19 @@
+{
+    "description": "Developer Role",
+    "metadata": {
+      "version": 1
+    },
+    "elasticsearch": {
+      "cluster": [ ],
+      "indices": [ ]
+    },
+    "kibana": [
+      {
+        "base": [ ],
+        "feature": {
+          "dashboard": [ "read" ],
+        },
+        "spaces": [ "*" ]
+      }
+    ]
+  }

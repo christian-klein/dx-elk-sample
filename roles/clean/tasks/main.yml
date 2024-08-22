@@ -1,0 +1,21 @@
+---
+- name: "Remove containers"
+  shell: > 
+          {{docker_path_mac}}docker compose 
+          -f  {{docker_config_dir}}/{{docker_file}} 
+          --profile all
+          down
+  register: dx_stop_output
+
+- name: "Remove volumes"
+  shell: > 
+          {{docker_path_mac}}docker volume
+          rm
+          {{ compose_project_name }}_certs {{ compose_project_name }}_esdata01 {{ compose_project_name }}_kibanadata {{ compose_project_name }}_logstashdata01 {{ compose_project_name }}_dx_profile  {{ compose_project_name }}_filebeatdata01  
+  register: dx_stop_output
+  failed_when: false
+
+- name: Remove project directory
+  file:
+    state: absent
+    path: "{{ docker_config_dir }}"

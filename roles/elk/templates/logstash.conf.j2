@@ -1,0 +1,33 @@
+input {
+  beats {
+    port => "{{logstash_port}}"
+  }
+}
+
+filter {
+  json {  
+    source => "message"
+  }
+  date {
+    match => [ "ibm_datetime", "yyyy-MM-dd'T'HH:mm:ss'.'SSSZ"  ]
+    target => "@timestamp"
+  }
+}
+
+{# 
+ISO8601
+yyyy-MM-dd'T'HH:mm:ss'.'SSSZ
+2024-08-09T01:05:38.691+0000
+
+ #}
+
+
+output {
+  elasticsearch {
+    hosts=> [ "https://{{elastic_hostname}}:{{elastic_port}}" ]
+    user=> "{{elk_passwords.elastic.user}}"
+    password=> "{{elk_passwords.elastic.password}}"
+    cacert => "/usr/share/logstash/certs/es01/es01.crt"
+    data_stream => "true"
+  }
+}

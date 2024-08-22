@@ -1,0 +1,57 @@
+---
+# tasks file for nfs-share
+
+- name: "NFS | Check if file exists"
+  stat:
+    path: /mnt/elk
+  register: nfs_mount
+  tags:
+    - nfs
+
+- name: "NFS | Create local elk nfs mount directory"
+  file:
+    path: /mnt/elk
+    state: directory
+    owner: docker
+    group: docker
+    mode: 0775
+    recurse: yes
+  when: not nfs_mount.stat.exists
+  tags:
+    - nfs
+
+- name: "NFS | Install NFS mount utility"
+  become: true
+  yum:
+    name: nfs-utils
+    state: present
+  when: ansible_os_family == "RedHat"
+  tags:
+    - nfs
+
+- name: "NFS | Install NFS mount utility"
+  become: true
+  apt:
+    pkg: nfs-common
+    state: present
+  when: ansible_os_family == "Debian"
+  tags:
+    - nfs
+
+# Do not create mountpoint using file, the mount module will create it
+# automatically. This avoids problems where the module tries to change
+# permissions on an existing directory
+
+- name: "NFS | Mount NFS share"
+  become: true
+  mount:
+    fstype: nfs
+    name: "{{ item.path }}"
+    opts: "vers={{ nfs_version }},{{ item.opts | default(nfs_mount_opts) }}"
+    src: "{{ item.location }}"
+    dump: "{{ item.dump | default(omit) }}"
+    passno: "{{ item.passno | default(omit) }}"
+    state: "{{ item.state | default( 'mounted' ) }}"
+  with_items: "{{ nfs_share_mounts }}"
+  tags:
+    - nfs

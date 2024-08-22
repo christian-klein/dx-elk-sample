@@ -1,0 +1,7 @@
+- hosts: "{{ ehosts | default('prod') }}"
+  vars_files:
+    - "../.ansible_pwd"
+  become: true
+  roles:
+  - { role: docker, tags: ["docker"] }
+  - { role: elk, tags: ["elk"] }

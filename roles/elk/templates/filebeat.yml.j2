@@ -1,0 +1,60 @@
+filebeat.inputs:
+- type: log
+  paths:
+    - {{dx_hpel_log}}
+
+processors:
+- add_cloud_metadata:
+
+output.logstash:
+  hosts: "{{ logstash_hostname }}:{{logstash_port}}"
+
+setup.kibana:
+  host: "{{ kibana_hostname }}:5601"
+  username: "{{elk_passwords.kibana.user}}"
+  password: "{{elk_passwords.kibana.password}}"
+
+{# output.console:
+  pretty: true #}
+
+{# name: "{{ filebeat_servername }}"
+filebeat.inputs:
+- type: filestream
+  id: dx-sysout-log
+  enabled: true
+  paths:
+    - {{dx_hpel_log}}
+ #}
+{# 
+filebeat.autodiscover:
+  providers:
+    - type: docker
+      hints.enabled: true
+
+
+output.elasticsearch:
+  hosts: ${elastic_hostname}
+  username: {{elk_passwords.elastic.user}}
+  password: {{elk_passwords.elastic.password}}
+  ssl.enabled: true
+  ssl.certificate_authorities: "certs/ca/ca.crt"
+
+------------------
+output.logstash:
+  hosts: "{{ logstash_hostname }}:{{logstash_port}}"
+{% if kibana_hostname is defined %}
+setup.kibana:
+  host: "{{ kibana_hostname }}:5601"
+{% endif %}
+filebeat.autodiscover:
+  providers:
+    - type: docker
+      hints.enabled: true
+filebeat.inputs:
+- type: container
+  paths: 
+  - '/var/lib/docker/containers/*/*-json.log'
+filebeat.modules:
+- module: elasticsearch
+- module: logstash
+- module: kibana #}

@@ -1,0 +1,285 @@
+services:
+  elk_setup:
+    image: docker.elastic.co/elasticsearch/elasticsearch:{{elastic_version}}
+    volumes:
+      - type: volume
+        source: certs
+        target: /usr/share/elasticsearch/config/certs
+        volume:
+          nocopy: true
+      - type: volume
+        source: esdata01
+        target: /usr/share/elasticsearch/data
+        volume:
+          nocopy: true
+      - type: volume
+        source: kibanadata
+        target: /usr/share/kibana/data
+        volume:
+          nocopy: true
+    user: "0"
+    command: >
+      bash -c '
+        if [ ! -f config/certs/ca.zip ]; then
+          echo "Creating CA";
+          bin/elasticsearch-certutil ca --silent --pem -out config/certs/ca.zip;
+          unzip config/certs/ca.zip -d config/certs;
+        fi;
+        if [ ! -f config/certs/certs.zip ]; then
+          echo "Creating certs";
+          echo -ne \
+          "instances:\n"\
+          "  - name: es01\n"\
+          "    dns:\n"\
+          "      - es01\n"\
+          "      - es01.cklein.us\n"\
+          "      - es01.local\n"\
+          "      - localhost\n"\
+          "    ip:\n"\
+          "      - 127.0.0.1\n"\
+          "      - 10.0.0.29\n"\
+          "  - name: kibana\n"\
+          "    dns:\n"\
+          "      - kibana\n"\
+          "      - kibana.cklein.us\n"\
+          "      - localhost\n"\
+          "    ip:\n"\
+          "      - 127.0.0.1\n"\
+          "      - 10.0.0.29\n"\
+          > config/certs/instances.yml;
+          bin/elasticsearch-certutil cert --silent --pem -out config/certs/certs.zip --in config/certs/instances.yml --ca-cert config/certs/ca/ca.crt --ca-key config/certs/ca/ca.key;
+          unzip config/certs/certs.zip -d config/certs;
+        fi;
+
+        echo "Setting file permissions"
+                
+        if [ ! $(ls -d -la /usr/share/elasticsearch/data/|awk '\''{print $3}'\''| xargs id -u) ]; then
+          echo "changing elastic search file permissions"
+          chown -R 1000:0 /usr/share/elasticsearch/data
+        fi;
+        if [ ! $(ls -d -la /usr/share/kibana/data/|awk '\''{print $3}'\''| xargs id -u) ]; then
+          echo "changing kibana search file permissions"
+          chown -R 1000:0 /usr/share/kibana/data;
+        fi;
+        if [ ! $(ls -d -la config/certs|awk '\''{print $3}'\''| xargs id -u) ]; then
+          echo "changing certs search file permissions"
+          chown -R 1000:0 config/certs;
+        fi;
+
+        find . -type d -exec chmod 750 \{\} \;;
+        find . -type f -exec chmod 640 \{\} \;;
+        
+        echo "Waiting for Elasticsearch availability";
+        until curl -s --cacert config/certs/ca/ca.crt https://{{elastic_hostname}}:{{elastic_port}} | grep -q "missing authentication credentials"; do sleep 30; done;
+        echo "Setting kibana_system password";
+        until curl -s -X POST --cacert config/certs/ca/ca.crt -u "elastic:{{elk_passwords.elastic.password}}" -H "Content-Type: application/json" https://{{elastic_hostname}}:{{elastic_port}}/_security/user/kibana_system/_password -d "{\"password\":\"{{elk_passwords.kibana.password}}\"}" | grep -q "^{}"; do sleep 10; done;
+        echo "Now wait until logstash is up and running for Ansible to be happy";
+        until curl -s -I {{logstash_hostname}}:{{logstash_port}} | grep -q 'HTTP/1.1 200 OK'; do sleep 10; done;
+        echo "All done!";
+      '
+    healthcheck:
+      test: ["CMD-SHELL", "[ -f config/certs/es01/es01.crt ]"]
+      interval: 1s
+      timeout: 5s
+      retries: 120
+    profiles:
+      - elk
+      - all
+
+  es01:
+    depends_on:
+      elk_setup:
+        condition: service_healthy
+    image: docker.elastic.co/elasticsearch/elasticsearch:{{elastic_version}}
+    volumes:
+      - type: volume
+        source: certs
+        target: /usr/share/elasticsearch/config/certs
+        volume:
+          nocopy: true
+      - type: volume
+        source: esdata01
+        target: /usr/share/elasticsearch/data
+        volume:
+          nocopy: true
+    ports:
+      - {{elastic_port}}:9200
+    environment:
+      - node.name=es01
+      - cluster.name={{cluster_name}}
+      - cluster.initial_master_nodes=es01
+      - ELASTIC_PASSWORD={{elk_passwords.elastic.password}}
+      - bootstrap.memory_lock=true
+      - xpack.security.enabled=true 
+      # - discovery.type=single-node
+      - xpack.security.http.ssl.enabled=true
+      - xpack.security.http.ssl.key=certs/es01/es01.key
+      - xpack.security.http.ssl.certificate=certs/es01/es01.crt
+      - xpack.security.http.ssl.certificate_authorities=certs/ca/ca.crt
+      - xpack.security.http.ssl.verification_mode=certificate
+      - xpack.security.transport.ssl.enabled=true
+      - xpack.security.transport.ssl.key=certs/es01/es01.key
+      - xpack.security.transport.ssl.certificate=certs/es01/es01.crt
+      - xpack.security.transport.ssl.certificate_authorities=certs/ca/ca.crt
+      - xpack.security.transport.ssl.verification_mode=certificate
+      - xpack.license.self_generated.type={{license}}
+    mem_limit: {{elastic_mem_limit}}
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -s --cacert config/certs/ca/ca.crt https://localhost:{{elastic_port}} | grep -q 'missing authentication credentials'",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 120
+    restart: unless-stopped
+    profiles:
+      - elk
+      - all
+
+  kibana:
+    depends_on:
+      es01:
+        condition: service_healthy
+    image: docker.elastic.co/kibana/kibana:{{kibana_version}}
+    volumes:
+      - type: volume
+        source: certs
+        target: /usr/share/kibana/config/certs
+        volume:
+          nocopy: true
+      - type: volume
+        source: kibanadata
+        target: /usr/share/kibana/data
+        volume:
+          nocopy: true
+    ports:
+      - {{kibana_port}}:5601
+    environment:
+      - SERVERNAME=kibana
+      - "ELASTICSEARCH_HOSTS=https://es01:{{elastic_port}}"
+      - ELASTICSEARCH_USERNAME=kibana_system
+      - ELASTICSEARCH_PASSWORD={{elk_passwords.kibana.password}}
+      - ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES=config/certs/ca/ca.crt
+      - XPACK_SECURITY_ENCRYPTIONKEY={{encryption_key}}
+      - XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY={{encryption_key}}
+      - XPACK_REPORTING_ENCRYPTIONKEY={{encryption_key}}
+    mem_limit: {{kibana_mem_limit}}
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -s -I http://localhost:5601 | grep -q 'HTTP/1.1 302 Found'",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 120
+    restart: unless-stopped
+    profiles:
+      - elk
+      - all
+
+  logstash:
+    image: "docker.elastic.co/logstash/logstash:{{logstash_version}}"
+    volumes:
+      - type: bind
+        source: ./logstash/logstash.conf
+        target: /usr/share/logstash/pipeline/logstash.conf
+        read_only: true
+      - certs:/usr/share/logstash/certs:ro
+    environment:
+      - xpack.monitoring.enabled=false
+      - ELASTIC_USER={{elk_passwords.elastic.user}}
+      - ELASTIC_PASSWORD={{elk_passwords.elastic.password}}
+      - elastic_hostname=https://{{ elastic_hostname }}:{{ elastic_port }}
+    mem_limit: {{logstash_mem_limit}}
+    depends_on:
+      es01:
+        condition: service_healthy
+      kibana:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -s -I localhost:9600 | grep -q 'HTTP/1.1 200 OK'",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 120
+    profiles:
+      - elk
+      - all
+volumes:
+  certs:
+    # {{certs_mount_type}}
+    {% if certs_mount_type == "nfs" %}
+    driver_opts:
+      type: "nfs"
+      o: "addr={{nfs_server}},{{nfs_opts}}"
+      device: ":{{nfs_path}}/docker/elk/certs"
+    {% elif certs_mount_type == "local" %}
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: {{ docker_config_dir }}/volumes/certs
+    {% endif %}
+  esdata01:
+     {% if elastic_mount_type == "nfs" %}
+    driver_opts:
+      type: "nfs"
+      o: "addr={{nfs_server}},{{nfs_opts}}"
+      device: ":{{nfs_path}}/docker/elk/esdata01"
+    {% elif elastic_mount_type == "local" %}
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: {{ docker_config_dir }}/volumes/esdata01
+    {% endif %}
+  kibanadata:
+    {% if kibana_mount_type == "nfs" %}
+    driver_opts:
+      type: "nfs"
+      o: "addr={{nfs_server}},{{nfs_opts}}"
+      device: ":{{nfs_path}}/docker/elk/kibana"
+    {% elif kibana_mount_type == "local" %}
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: {{ docker_config_dir }}/volumes/kibana
+    {% endif %}
+  {# filebeatdata01:
+    {% if filebeat_mount_type == "nfs" %}
+    driver_opts:
+      type: "nfs"
+      o: "addr={{nfs_server}},{{nfs_opts}}"
+      device: ":{{nfs_path}}/docker/elk/filebeatdata01"
+    {% elif filebeat_mount_type == "local" %}
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: {{ docker_config_dir }}/volumes/filebeatdata01
+    {% endif %} #}
+  logstashdata01:
+    driver: local
+    {% if logstash_mount_type == "nfs" %}
+    driver_opts:
+      type: "nfs"
+      o: "addr={{nfs_server}},{{nfs_opts}}"
+      device: ":{{nfs_path}}/docker/elk/logstashdata01"
+    {% elif logstash_mount_type == "local" %}
+    driver_opts:
+      o: bind
+      type: none
+      device: {{ docker_config_dir }}/volumes/logstashdata01
+    {% endif %}

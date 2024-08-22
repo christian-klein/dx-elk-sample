@@ -1,0 +1,49 @@
+#!/bin/bash
+echo "DX ELK ... Remove files from data volumes ... "
+{% if certs_mount_type == 'local' %}
+echo " - Remove files from {{docker_config_dir}}/volumes/{{certs_data_dir}}/ ... "
+rm -rf {{docker_config_dir}}/volumes/{{certs_data_dir}}/*
+{% elif certs_mount_type == 'nfs' %}
+echo " - Remove files from {{docker_config_dir}}/{{certs_data_dir}}/ ... "
+rm -rf {{docker_config_dir}}/{{certs_data_dir}}/*
+{% endif %}
+
+{% if elastic_mount_type == 'local' %}
+echo " - Remove files from {{docker_config_dir}}/volumes/{{elastic_data_dir}}/ ... "
+rm -rf {{docker_config_dir}}/volumes/{{elastic_data_dir}}/*
+{% elif elastic_mount_type == 'nfs' %}
+echo " - Remove files from {{docker_config_dir}}/{{elastic_data_dir}}/ ... "
+rm -rf {{docker_config_dir}}/{{elastic_data_dir}}/*
+{% endif %}
+
+{% if kibana_mount_type == 'local' %}
+echo " - Remove files from {{docker_config_dir}}/volumes/{{kibana_data_dir}}/ ... "
+rm -rf {{docker_config_dir}}/volumes/{{kibana_data_dir}}/*
+{% elif kibana_mount_type == 'nfs' %}
+echo " - Remove files from {{docker_config_dir}}/{{kibana_data_dir}}/ ... "
+rm -rf {{docker_config_dir}}/{{kibana_data_dir}}/*
+{% endif %}
+
+{% if logstash_mount_type == 'local' %}
+echo " - Remove files from {{docker_config_dir}}/volumes/{{logstash_data_dir}}/ ... "
+rm -rf {{docker_config_dir}}/volumes/{{logstash_data_dir}}/*
+{% elif logstash_mount_type == 'nfs' %}
+echo " - Remove files from {{docker_config_dir}}/{{logstash_data_dir}}/ ... "
+rm -rf {{docker_config_dir}}/{{logstash_data_dir}}/*
+{% endif %}
+
+{% if filebeat_mount_type == 'local' %}
+echo " - Remove files from {{docker_config_dir}}/volumes/{{filebeat_data_dir}}/ ... "
+rm -rf {{docker_config_dir}}/volumes/{{filebeat_data_dir}}/*
+{% elif filebeat_mount_type == 'nfs' %}
+echo " - Remove files from {{docker_config_dir}}/{{filebeat_data_dir}}/ ... "
+rm -rf {{docker_config_dir}}/{{filebeat_data_dir}}/*
+{% endif %}
+
+{% if dx_mount_type == 'local' %}
+echo " - Remove files from {{docker_config_dir}}/volumes/{{dx_data_dir}}/wp_profile ... "
+rm -rf {{docker_config_dir}}/volumes/{{dx_data_dir}}/wp_profile/*
+{% elif dx_mount_type == 'nfs' %}
+echo " - Remove files from {{docker_config_dir}}/{{dx_data_dir}}/wp_profile ... "
+rm -rf {{docker_config_dir}}/{{dx_data_dir}}/wp_profile/*
+{% endif %}

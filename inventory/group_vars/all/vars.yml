@@ -1,0 +1,9 @@
+log_driver: "json-file"
+log_max_size: "10m"
+log_max_file: "3"
+
+dx_docker_registry: "registry.cklein.us"
+dx_docker_prefix: "/hcl/dx"
+
+dx_versions:
+  core: v95_CF221_20240708-2145

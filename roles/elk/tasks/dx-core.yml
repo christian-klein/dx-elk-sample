@@ -1,0 +1,327 @@
+---
+# #################################### Create Directories            ####################################
+
+- name: "DX | Create local dx volume directory"
+  file:
+    path: "{{ docker_config_dir }}/volumes/{{dx_data_dir}}/wp_profile"
+    state: directory
+    owner: "{{ docker_user }}"
+    group: "{{ docker_group }}"
+    mode: 0775
+    recurse: yes
+  when: certs_mount_type == "local"
+  tags:
+    - prep
+    - dx
+
+- name: "DX | Create filebeat directory"
+  file:
+    path: "{{docker_config_dir}}/filebeat"
+    state: directory
+    owner: "{{ docker_user }}"
+    group: "{{ docker_group }}"
+    mode: 0775
+    recurse: yes
+  tags:
+    - prep
+    - dx
+
+- name: "DX | Create local filebeat volume directory"
+  file:
+    path: "{{docker_config_dir}}/volumes/{{filebeat_data_dir}}"
+    state: directory
+    owner: "{{ docker_user }}"
+    group: "{{ docker_group }}"
+    mode: 0775
+    recurse: yes
+  when: filebeat_mount_type == "local"
+  tags:
+    - prep
+    - dx
+
+# #################################### Copy config & compose file(s) ####################################
+
+- name: "DX | Copy docker compose files"
+  template:
+    src: "{{item.src}}"
+    dest: "{{item.dest}}"
+    owner: "{{ docker_user }}"
+    group: "{{ docker_group }}"
+    lstrip_blocks: yes
+    mode: 0775
+  loop:
+    - { src: '../templates/docker-dx.yaml.j2', dest: "{{docker_config_dir}}/docker-dx.yaml" }
+    - { src: '../templates/docker-dx-filebeat.yaml.j2', dest: "{{docker_config_dir}}/docker-dx-filebeat.yaml" }
+    - { src: '../templates/docker-dx-debug.yaml.j2', dest: "{{docker_config_dir}}/docker-dx-debug.yaml" }
+  tags:
+    - prep
+    - dx
+
+- name: "DX | Copy filebeat.yml"
+  template:
+    src: templates/filebeat.yml.j2
+    dest: "{{docker_config_dir}}/filebeat/filebeat.yml"
+    owner: "{{ docker_user }}"
+    group: "{{ docker_group }}"
+    lstrip_blocks: yes
+    mode: 0775
+  tags:
+    - prep
+    - dx
+
+- name: "DX | Copy HPELLoggingOn.py"
+  ansible.builtin.copy:
+    src: files/HPELLoggingOn.py
+    dest: "{{docker_config_dir}}/HPELLoggingOn.py"
+    owner: "{{ docker_user }}"
+    group: "{{ docker_group }}"
+    mode: 0775
+  tags:
+    - prep
+    - dx
+
+# #################################### Pull Images                   ####################################
+
+- name: DX | Pull images
+  community.docker.docker_compose_v2_pull:
+    files:
+      - docker-dx.yaml
+    profiles: all
+  when: not ansible_os_family == "Darwin"
+  tags:
+    - start
+    - dx
+    - test
+
+- name: "DX | MACOS | Pull images"
+  community.docker.docker_compose_v2:
+    project_src: "{{docker_config_dir}}/"
+    files:
+      - docker-dx.yaml
+    profiles: all
+    docker_cli: /usr/local/bin/docker
+  when: ansible_os_family == "Darwin"
+  failed_when: false # This is a workaround for the issue with the docker-compose module on MacOS
+  tags:
+    - start
+    - dx
+    - test
+
+# #################################### Start DX Containers           ####################################
+
+- name: Start DX time
+  debug:
+    msg: "Timestamp: {{ ansible_date_time.iso8601 }}"
+  tags:
+    - prep
+    - dx
+
+- name: DX | HCL DX Container starting
+  community.docker.docker_compose_v2:
+    project_src: "{{docker_config_dir}}/"
+    files:
+      - docker-dx.yaml
+    profiles: dx
+    services: 
+      - dx
+    wait: true
+    wait_timeout: 6000 # 10 min timout
+  when: not ansible_os_family == "Darwin"
+  tags:
+    - start
+    - dx
+
+- name: "DX | MACOS | Create and start HCL DX Services"
+  community.docker.docker_compose_v2:
+    project_src: "{{docker_config_dir}}/"
+    files:
+      - docker-dx.yaml
+    profiles: dx
+    services: 
+      - dx
+    docker_cli: /usr/local/bin/docker
+    wait: true
+    wait_timeout: 6000 # 5min timout
+  when: ansible_os_family == "Darwin"
+  failed_when: false # This is a workaround for the issue with the docker-compose module on MacOS
+  tags:
+    - start
+    - dx
+
+- name: "DX | Wait for port 10039 to become open on the host"
+  ansible.builtin.wait_for:
+    port: 10039
+    timeout: 6000
+    sleep: 5
+  tags:
+    - postconfig
+    - wsadmin
+    - dx
+
+- name: DX | HCL DX Contianer started
+  debug:
+    msg: "Timestamp: {{ ansible_date_time.iso8601 }}"
+  tags:
+    - prep
+    - dx
+
+# #################################### Configure DX Containers       ####################################
+
+- name: "DX | Run the wsadmin script inside the docker container"
+  shell: > 
+          {{docker_path_mac}}docker compose 
+          -f  {{docker_config_dir}}/{{docker_file}} 
+          exec dx 
+          /opt/HCL/AppServer/bin/wsadmin.sh 
+          -lang jython 
+          -username {{dx_credentials.user}} 
+          -password {{dx_credentials.password}} 
+          -f '/opt/HCL/HPELLoggingOn.py' 
+          dockerNode 
+          WebSphere_Portal 
+  register: wsadmin_output
+  tags:
+    - postconfig
+    - wsadmin
+    - dx
+
+- name: "DX | Show results"
+  ansible.builtin.debug:
+    var: wsadmin_output
+  tags:
+    - debug
+    - wsadmin
+    - dx
+
+- name: "DX | Install psutil python package"
+  ansible.builtin.pip:
+    name: psutil
+  tags:
+    - postconfig
+    - wsadmin
+    - stopdx
+    - dx
+
+- name: "DX | Getting process IDs of the process"
+  community.general.pids:
+      pattern: "java.*WebSphere_Portal"
+  register: pids_of_java
+  tags:
+    - postconfig
+    - wsadmin
+    - stopdx
+    - dx
+
+- name: "DX | Stop DX"
+  shell: > 
+          {{docker_path_mac}}docker compose 
+          -f  {{docker_config_dir}}/{{docker_file}} 
+          exec dx 
+          /opt/HCL/wp_profile/bin/stopServer.sh WebSphere_Portal -username wasadmin -password wasadmin
+          -username {{dx_credentials.user}} 
+          -password {{dx_credentials.password}} 
+  register: dx_stop_output
+  tags:
+    - postconfig
+    - wsadmin
+    - stopdx
+    - dx
+
+- name: "DX | Wait for all WebSphere_Portal processes to exit"
+  wait_for:
+    path: "/proc/{{ item }}/status"
+    state: absent
+  with_items: "{{ pids_of_java.pids }}"
+  tags:
+    - postconfig
+    - wsadmin
+    - stopdx
+    - dx
+
+- name: "DX | Start DX"
+  shell: > 
+          {{docker_path_mac}}docker compose 
+          -f  {{docker_config_dir}}/{{docker_file}} 
+          exec dx 
+          /opt/HCL/wp_profile/bin/startServer.sh WebSphere_Portal
+  register: dx_start_output
+  tags:
+    - postconfig
+    - wsadmin
+    - startdx
+    - dx
+
+- name: "DX | Wait for port 10039 to become open on the host"
+  ansible.builtin.wait_for:
+    port: 10039
+    timeout: 600
+    sleep: 5
+  tags:
+    - postconfig
+    - wsadmin
+    - startdx
+    - dx
+
+# #################################### Start Log Shipping Containers ####################################
+
+- name: "DX | Create and start LogViewer container"
+  community.docker.docker_compose_v2:
+    project_src: "{{docker_config_dir}}/"
+    files:
+      - docker-dx.yaml
+    profiles: dx
+    services: 
+      - dxlogviewer
+    wait: true
+    wait_timeout: 600 # 10 min timout
+  when: not ansible_os_family == "Darwin"
+  tags:
+    - start
+    - dx
+
+- name: "DX | MACOS | Create and start LogViewer container"
+  community.docker.docker_compose_v2:
+    project_src: "{{docker_config_dir}}/"
+    files:
+      - docker-dx.yaml
+    profiles: dx
+    services: 
+      - dxlogviewer
+    wait: true
+    wait_timeout: 600 # 10 min timout
+  when: ansible_os_family == "Darwin"
+  failed_when: false # This is a workaround for the issue with the docker-compose module on MacOS
+  tags:
+    - start
+    - dx
+
+- name: "DX | Create and start FileBeat Container"
+  community.docker.docker_compose_v2:
+    project_src: "{{docker_config_dir}}/"
+    files:
+      - docker-dx.yaml
+    profiles: all
+    services: 
+      - dxfilebeat
+    wait: true
+    wait_timeout: 600 # 10 min timout
+  when: not ansible_os_family == "Darwin"
+  tags:
+    - start
+    - dx
+
+- name: "DX | MACOS | Create and start FileBeat Container"
+  community.docker.docker_compose_v2:
+    project_src: "{{docker_config_dir}}/"
+    files:
+      - docker-dx.yaml
+    profiles: all
+    services: 
+      - dxfilebeat
+    wait: true
+    wait_timeout: 600 # 10 min timout
+  when: ansible_os_family == "Darwin"
+  failed_when: false # This is a workaround for the issue with the docker-compose module on MacOS
+  tags:
+    - start
+    - dx

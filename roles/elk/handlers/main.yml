@@ -1,0 +1,84 @@
+---
+# handlers file for ELK
+
+# LOGSTASH
+- name: up logstash
+  community.docker.docker_compose_v2:
+    services: 
+      - logstash
+    project_src: "{{docker_config_dir}}/"
+    profiles: all
+    state: present
+
+- name: start logstash
+  community.docker.docker_compose_v2:
+    services:  
+      - logstash
+    project_src: "{{docker_config_dir}}/"
+    profiles: all
+    state: present
+
+- name: restart logstash
+  community.docker.docker_compose_v2:
+    services:  
+      - logstash
+    project_src: "{{docker_config_dir}}/"
+    profiles: all
+    state: restarted
+
+- name: stop logstash
+  community.docker.docker_compose_v2:
+    services:  
+      - logstash
+    project_src: "{{docker_config_dir}}/"
+    profiles: all
+    state: stopped
+
+- name: down logstash
+  community.docker.docker_compose_v2:
+    services:  
+      - logstash
+    project_src: "{{docker_config_dir}}/"
+    profiles: all
+    state: absent
+
+# LOGGENERATOR
+- name: up loggenerator
+  community.docker.docker_compose_v2:
+    services: 
+      - loggenerator
+    project_src: "{{docker_config_dir}}/"
+    profiles: all
+    state: present
+
+- name: start loggenerator
+  community.docker.docker_compose_v2:
+    services: 
+      - loggenerator
+    project_src: "{{docker_config_dir}}/"
+    profiles: all
+    state: present
+
+- name: restart loggenerator
+  community.docker.docker_compose_v2:
+    services: 
+      - loggenerator
+    project_src: "{{docker_config_dir}}/"
+    profiles: all
+    state: restarted
+
+- name: stop loggenerator
+  community.docker.docker_compose_v2:
+    services: 
+      - loggenerator
+    project_src: "{{docker_config_dir}}/"
+    profiles: all
+    state: stopped
+
+- name: down loggenerator
+  community.docker.docker_compose_v2:
+    services: 
+      - loggenerator
+    project_src: "{{docker_config_dir}}/"
+    profiles: all
+    state: absent

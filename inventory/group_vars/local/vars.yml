@@ -1,0 +1,86 @@
+# ###############################################
+# ##      NFS                                  ##
+# ###############################################
+nfs_mount: False
+
+# ###############################################
+# ##      DOCKER                               ##
+# ###############################################
+
+docker_host: "localhost"
+
+docker_config_dir: /Users/christian.klein/docker/elk
+docker_user: christian.klein
+docker_group: staff
+
+compose_project_name: "elk"
+
+# ###############################################
+# ##      ELK - GENERAL                        ##
+# ###############################################
+
+version: "8.14.3"
+
+cluster_name: "elk-cluster"
+
+# Set to 'basic' or 'trial' to automatically start the 30-day trial
+license: "basic"
+
+encryption_key: "c34d38b3a14956121ff2170e5030b471551370178f43e5626eec58b04a30fae2"
+
+# mount_tyope: nfs|local
+certs_mount_type: local
+
+# ###############################################
+# ##      ELASTIC SEARCH                       ##
+# ###############################################
+elastic_hostname: "es01"
+elastic_port: "9200"
+elastic_mem_limit: "1073741824"
+# mount_tyope: nfs|local
+elastic_mount_type: local
+
+# ###############################################
+# ##      KIBANA                               ##
+# ###############################################
+kibana_hostname: "kibana"
+kibana_port: "5601"
+kibana_mem_limit: "1073741824"
+# mount_tyope: nfs|local
+kibana_mount_type: local
+
+# ###############################################
+# ##      LOGSTASH                             ##
+# ###############################################
+logstash_hostname: "logstash"
+logstash_port: "5044"
+logstash_mem_limit: "1073741824"
+# mount_tyope: nfs|local
+logstash_mount_type: local
+
+# ###############################################
+# ##      FILEBEAT                             ##
+# ###############################################
+filebeat_hostname: "fb01"
+filebeat_conf_dir: "/usr/share/filebeat"
+# mount_tyope: nfs|local
+filebeat_mount_type: local
+
+# ###############################################
+# ##      DX                                   ##
+# ###############################################
+dx_profile_dir: /opt/HCL/wp_profile
+dx_cell: dockerCell
+dx_node: dockerNode
+dx_server: WebSphere_Portal
+dx_logs_dir: "{{dx_profile_dir}}/logs/{{dx_server}}"
+dx_hpel_log: "{{dx_logs_dir}}/hpelOutput.log"
+# mount_tyope: nfs|local
+dx_mount_type: local
+
+
+
+
+
+
+

@@ -1,0 +1,23 @@
+# Must be called from docker-dx.yml or the volume won't exist
+services:
+  dxdebug:
+    image: "{{ dx_docker_registry_path }}/core:{{ dx_versions.core }}"
+    container_name: dxdebug
+    platform: linux/amd64
+    stdin_open: true # docker run -i
+    tty: true        # docker run -t
+    volumes:
+      - type: volume
+        source: dx_profile
+        target: /opt/HCL/wp_profile
+        volume:
+          nocopy: true
+      - type: bind
+        source: ./HPELLoggingOn.py
+        target: /opt/HCL/HPELLoggingOn.py
+    entrypoint: /bin/sh
+    depends_on:
+      dx_setup:
+        condition: service_completed_successfully
+    profiles:
+      - debug

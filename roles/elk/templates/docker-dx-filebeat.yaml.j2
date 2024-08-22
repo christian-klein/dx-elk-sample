@@ -1,0 +1,110 @@
+services:
+  dx_filebeat_setup:
+    image: docker.elastic.co/beats/filebeat:{{filebeat_version}}
+    user: root
+    platform: linux/amd64
+    volumes:
+      - type: volume
+        source: certs
+        target: /usr/share/filebeat/certs
+        volume:
+          nocopy: true
+      - type: volume
+        source: filebeatdata01
+        target: /usr/share/filebeat/data
+        volume:
+          nocopy: true
+      - type: bind
+        source: "./filebeat/filebeat.yml"
+        target: "/usr/share/filebeat/filebeat.yml"
+        read_only: true
+      - type: volume
+        source: dx_profile
+        target: /opt/HCL/wp_profile
+        volume:
+          nocopy: true
+    command: >
+      bash -c '
+        echo "+ Current User:"
+        whoami
+        echo "- Current User:"
+        echo "+ Setting file permissions"
+        chown -R 1000:0 /usr/share/filebeat/certs;
+        chown -R 1000:0 /usr/share/filebeat/data;
+        chown -R 1000:0 /opt/HCL/wp_profile;
+        chown 1000:0 /usr/share/filebeat/filebeat.yml;
+        echo "- Setting file permissions"
+      '
+    profiles:
+      - dx
+      - all
+
+  dxfilebeat:
+    depends_on:
+      dx:
+        condition: service_healthy
+    image: docker.elastic.co/beats/filebeat:{{filebeat_version}}
+    user: root
+    volumes:
+      - type: volume
+        source: certs
+        target: /usr/share/filebeat/certs
+        volume:
+          nocopy: true
+      - type: volume
+        source: filebeatdata01
+        target: /usr/share/filebeat/data
+        volume:
+          nocopy: true
+      - type: bind
+        source: "./filebeat/filebeat.yml"
+        target: "/usr/share/filebeat/filebeat.yml"
+        read_only: true
+      - type: volume
+        source: dx_profile
+        target: /opt/HCL/wp_profile
+        volume:
+          nocopy: true
+      - "/var/lib/docker/containers:/var/lib/docker/containers:ro"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    environment:
+      - ELASTIC_USER={{elk_passwords.elastic.user}}
+      - ELASTIC_PASSWORD={{elk_passwords.elastic.password}}
+      - elastic_hostname=https://es01:{{elastic_port}}
+      - kibana_hostname=http://kibana:{{kibana_port}}
+      - LOGSTASH_HOSTS=http://logstash01:{{logstash_port}}
+    command:
+      - --strict.perms=false
+    restart: unless-stopped
+    profiles:
+      - dx
+      - all
+      
+volumes:
+  certs:
+    # {{certs_mount_type}}
+    {% if certs_mount_type == "nfs" %}
+    driver_opts:
+      type: "nfs"
+      o: "addr={{nfs_server}},{{nfs_opts}}"
+      device: ":{{nfs_path}}/docker/elk/certs"
+    {% elif certs_mount_type == "local" %}
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: {{ docker_config_dir }}/volumes/certs
+    {% endif %}
+  filebeatdata01:
+    {% if filebeat_mount_type == "nfs" %}
+    driver_opts:
+      type: "nfs"
+      o: "addr={{nfs_server}},{{nfs_opts}}"
+      device: ":{{nfs_path}}/docker/elk/filebeatdata01"
+    {% elif filebeat_mount_type == "local" %}
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: {{ docker_config_dir }}/volumes/filebeatdata01
+    {% endif %}

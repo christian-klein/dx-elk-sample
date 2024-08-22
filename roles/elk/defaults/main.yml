@@ -1,0 +1,112 @@
+---
+# ###############################################
+# ##      NFS                                  ##
+# ###############################################
+nfs: False
+nfs_share_mounts: []
+nfs_server: "undefined"
+# NFS version, default 4.1
+nfs_version: 4.1
+nfs_opts: "nfsvers={{ nfs_version }},nolock,soft,rw"
+nfs_path: "/"
+# Default NFS4 mount options
+nfs_mount_opts: rsize=32768,wsize=32768,timeo=14,intr
+
+# ###############################################
+# ##      DOCKER                               ##
+# ###############################################
+docker_file: "compose.yaml"
+
+network_name: "elastic"
+docker_host: "localhost"
+
+docker_config_dir: 
+docker_user: 
+docker_group: 
+
+compose_project_name: "elk"
+
+docker_path_mac: /usr/local/bin/
+# ###############################################
+# ##      ELK - GENERAL                        ##
+# ###############################################
+
+cluster_name: "elk-cluster"
+
+# Set to 'basic' or 'trial' to automatically start the 30-day trial
+license: "basic"
+
+encryption_key: ""
+
+# ###############################################
+# ##      CERTS                                ##
+# ###############################################
+# mount_tyope: nfs|local
+certs_mount_type: local
+certs_data_dir: "certs"
+
+# ###############################################
+# ##      ELASTIC SEARCH                       ##
+# ###############################################
+elastic_version: "8.15.0"
+elastic_hostname: "es01"
+elastic_port: "9200"
+elastic_mem_limit: "1073741824"
+# mount_tyope: nfs|local
+elastic_mount_type: local
+elastic_data_dir: "esdata01"
+
+# ###############################################
+# ##      KIBANA                               ##
+# ###############################################
+kibana_version: "8.15.0"
+kibana_hostname: "kibana"
+kibana_port: "5601"
+kibana_mem_limit: "1073741824"
+# mount_tyope: nfs|local
+kibana_mount_type: local
+kibana_data_dir: "kibana"
+kibana_dashboard_path: ./dx_dashboard.ndjson
+kibana_dashboard: "{{ lookup('file', kibana_dashboard_path) | from_json }}"
+
+# ###############################################
+# ##      LOGSTASH                             ##
+# ###############################################
+logstash_version: "8.15.0"
+logstash_hostname: "logstash"
+logstash_port: "5044"
+logstash_mem_limit: "1073741824"
+# mount_tyope: nfs|local
+logstash_mount_type: local
+logstash_data_dir: "logstashdata01"
+
+# ###############################################
+# ##      FILEBEAT                             ##
+# ###############################################
+filebeat_version: "8.15.0"
+filebeat_hostname: "fb01"
+filebeat_conf_dir: "/usr/share/filebeat"
+# mount_tyope: nfs|local
+filebeat_mount_type: local
+filebeat_data_dir: "filebeatdata01"
+
+# ###############################################
+# ##      DX                                   ##
+# ###############################################
+dx_profile_dir: /opt/HCL/wp_profile
+dx_cell: dockerCell
+dx_node: dockerNode
+dx_server: WebSphere_Portal
+dx_logs_dir: "{{dx_profile_dir}}/logs/{{dx_server}}"
+dx_hpel_log: "{{dx_logs_dir}}/hpelOutput.log"
+# mount_tyope: nfs|local
+dx_mount_type: local
+dx_data_dir: "dx"
+
+dx_docker_registry: ""
+dx_docker_prefix: "/hcl/dx"
+dx_versions:
+  core: v95_CF221_20240708-2145
+
+
+

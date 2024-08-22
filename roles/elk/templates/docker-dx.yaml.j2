@@ -1,0 +1,127 @@
+services:
+  dx_setup:
+    image: "{{ dx_docker_registry_path }}/core:{{ dx_versions.core }}"
+    platform: linux/amd64
+    user: "0"
+    volumes:
+      - type: volume
+        source: dx_profile
+        target: /opt/HCL/wp_profile
+        volume:
+          nocopy: true
+      - type: bind
+        source: ./HPELLoggingOn.py
+        target: /opt/HCL/HPELLoggingOn.py
+    command: >
+      bash -c '
+        echo "********************************"
+        echo "DX Setup Container is starting"
+        echo "********************************"
+        echo "+ Current User:"
+        whoami
+        echo "- Current User:"
+        echo "+ Setting file permissions"
+        chown -R 1000:0 /opt/HCL/wp_profile;
+        chown 1000:0 /opt/HCL/HPELLoggingOn.py;
+        echo "  Effective Permissions:"
+        ls -la /opt/HCL/
+        echo "- Setting file permissions"
+        echo "********************************"
+        echo "DX Setup Container is Done"
+        echo "********************************"
+      '
+    profiles:
+      - dx
+      - all
+  dx:
+    image: "{{ dx_docker_registry_path }}/core:{{ dx_versions.core }}"
+    container_name: dx221
+    platform: linux/amd64
+    ports:
+      - "10032:10032"
+      - "10033:10033"
+      - "10034:10034"
+      - "10035:10035"
+      - "10036:10036"
+      - "10037:10037"
+      - "10038:10038"
+      - "10039:10039"
+      - "10040:10040"
+      - "10041:10041"
+      - "10042:10042"
+      - "10200:10200"
+      - "10201:10201"
+      - "10202:10202"
+      - "10203:10203"
+      - "7777:7777"
+    volumes:
+      - type: volume
+        source: dx_profile
+        target: /opt/HCL/wp_profile
+        volume:
+          nocopy: true
+      - type: bind
+        source: ./HPELLoggingOn.py
+        target: /opt/HCL/HPELLoggingOn.py
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/app/entrypoints/readiness.sh /wps/portal",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 120
+    depends_on:
+      dx_setup:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    profiles:
+      - dx
+      - all
+
+  # DX LOOG VIEWER
+  dxlogviewer:
+    image: "{{ dx_docker_registry_path }}/core:{{ dx_versions.core }}"
+    container_name: dxlogviewer
+    platform: linux/amd64
+    volumes_from:
+      - dx
+    restart: unless-stopped
+    entrypoint: /bin/bash
+    command: >
+      -c '
+        echo "********************************"
+        echo "LogViewer is starting"
+        echo "********************************"
+        /opt/HCL/wp_profile/bin/logViewer.sh -outLog {{dx_hpel_log}} -resumable -resume -format json -monitor
+        echo "********************************"
+        echo "LogViewer has stopped"
+        echo "********************************"
+      '
+    depends_on:
+      dx:
+       condition: service_healthy
+      dx_setup:
+        condition: service_completed_successfully
+    profiles:
+      - dx
+      - all
+
+include:
+ - docker-dx-debug.yaml
+ - docker-dx-filebeat.yaml
+volumes:
+  dx_profile:
+    driver: local
+    {% if logstash_mount_type == "nfs" %}
+    driver_opts:
+      type: "nfs"
+      o: "addr={{nfs_server}},{{nfs_opts}}"
+      device: ":{{nfs_path}}/docker/elk/{{dx_data_dir}}/wp_profile"
+    {% elif logstash_mount_type == "local" %}
+    driver_opts:
+      o: bind
+      type: none
+      device: "{{ docker_config_dir }}/volumes/{{dx_data_dir}}/wp_profile"
+    {% endif %}
