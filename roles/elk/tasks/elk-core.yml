@@ -134,38 +134,14 @@
 # #################################### Start Containers              ####################################
 
 - name: "ELK | Create and start Elasticsearch Services"
-  community.docker.docker_compose_v2:
-    project_src: "{{docker_config_dir}}/"
-    files:
-      - docker-elk.yaml
-    profiles: elk
-    wait: true
-    wait_timeout: 300 # 5min timout
-  when: not ansible_os_family == "Darwin"
-  tags:
-    - start
-    - elk
-
-- name: "ELK | MACOS | Create and start Elasticsearch Services"
-  community.docker.docker_compose_v2:
-    project_src: "{{docker_config_dir}}/"
-    files:
-      - docker-elk.yaml
-    profiles: elk
-    docker_cli: /usr/local/bin/docker
-    wait: true
-    wait_timeout: 600 # 5min timout
-  when: ansible_os_family == "Darwin"
-  failed_when: false # This is a workaround for the issue with the docker-compose module on MacOS
-  tags:
-    - start
-    - elk
-
-- name: "ELK | Wait for port {{ kibana_port }} to become open on the host"
-  ansible.builtin.wait_for:
-    port: "{{ kibana_port }}"
-    timeout: 600
-    sleep: 5
+  shell: > 
+          {{docker_path}}docker compose 
+          -f  {{docker_config_dir}}/docker-elk.yaml 
+          --profile elk
+          up
+          -d
+  failed_when: False
+  register: elk_up_output
   tags:
     - start
     - elk

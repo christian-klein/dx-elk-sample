@@ -11,6 +11,80 @@ $ pip3 --version
 pip 21.2.4 from /Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/site-packages/pip (python 3.9)
 ```
 
+## Windows
+
+I recommend just running under WSL2
+
+# Windows running WSL2
+
+Install and run Docker Desktop. 
+
+Install an ssh server if not yet installed andd set it to port 2022
+
+Inside the WSL2 instance run:
+
+```
+sudo apt install openssh-server
+sudo sed -i -E 's,^#?Port.*$,Port 2022,' /etc/ssh/sshd_config
+sudo sh -c "echo '${USER} ALL=(root) NOPASSWD: /usr/sbin/service ssh start' >/etc/sudoers.d/service-ssh-start"
+sudo service ssh restart
+```
+Once the service is restarted, make sure it is on port 2022:
+```
+$ sudo /usr/sbin/service ssh status
+● ssh.service - OpenBSD Secure Shell server
+     Loaded: loaded (/lib/systemd/system/ssh.service; enabled; vendor preset: enabled)
+     Active: active (running) since Thu 2024-08-22 15:23:15 PDT; 1s ago
+       Docs: man:sshd(8)
+             man:sshd_config(5)
+    Process: 350379 ExecStartPre=/usr/sbin/sshd -t (code=exited, status=0/SUCCESS)
+   Main PID: 350380 (sshd)
+      Tasks: 1 (limit: 37996)
+     Memory: 1.8M
+     CGroup: /system.slice/ssh.service
+             └─350380 "sshd: /usr/sbin/sshd -D [listener] 0 of 10-100 startups"
+
+Aug 22 15:23:15 Chris-Main-PC systemd[1]: Starting OpenBSD Secure Shell server...
+Aug 22 15:23:15 Chris-Main-PC sshd[350380]: Server listening on 0.0.0.0 port 2022.
+Aug 22 15:23:15 Chris-Main-PC sshd[350380]: Server listening on :: port 2022.
+Aug 22 15:23:15 Chris-Main-PC systemd[1]: Started OpenBSD Secure Shell server.
+```
+Also make sure that you can write to the authorized keys
+```
+chmod 600 ~/.ssh/authorized_keys
+```
+
+From WSL2, you should now add the key:
+```
+$ ssh-copy-id -p 2022 cdk2128@localhost
+/usr/bin/ssh-copy-id: INFO: Source of key(s) to be installed: "/home/cdk2128/.ssh/id_rsa-remote-ssh.pub"
+The authenticity of host '[localhost]:2022 ([127.0.0.1]:2022)' can't be established.
+ED25519 key fingerprint is SHA256:fjByvCvFZiL3IfOAnRDHeZFn7yylWjFNJwfY2cEnaQo.
+This key is not known by any other names
+Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+/usr/bin/ssh-copy-id: INFO: attempting to log in with the new key(s), to filter out any that are already installed
+/usr/bin/ssh-copy-id: INFO: 1 key(s) remain to be installed -- if you are prompted now it is to install the new keys
+
+Number of key(s) added: 1
+
+Now try logging into the machine, with:   "ssh -p '2022' 'cdk2128@localhost'"
+and check to make sure that only the key(s) you wanted were added.
+```
+
+If you want you can also add it from Powershell:
+```
+type $env:USERPROFILE\.ssh\id_rsa.pub | ssh cdk2128@localhost -p 2022 "cat >> .ssh/authorized_keys"
+```
+
+
+## Debian/Ubuntu/WSL2
+
+If Python3 and Pip3 are not installed run:
+```
+sudo apt install python3
+sudo apt install python3-pip
+```
+
 Install Ansible:
 
 ```
@@ -64,8 +138,29 @@ dx_registry_credentials:
   password: "mypassword"
 ```
 
+You can also use this file to overwrite variables for the specific installation without overwriting the github project code. For example, you may have the following to specify the user and location of the configuration files:
 
-Next, Ansible needs to be able to connect to the localhost using ssh and act as a super user. This is easiest if you have a private certificate file. Use ssh-copy-id to easily achieve that.
+```
+elk_passwords:
+  elastic:
+    user: "elastic"
+    password: "Tes2024la"
+  kibana:
+    user: "elastic"
+    password: "Tes2024la"
+dx_credentials:
+  user: "wpsadmin"
+  password: "wpsadmin"
+dx_registry_credentials:
+  user: "myuser"
+  password: "mypassword"
+
+dx_docker_registry: "registry.cklein.us"
+docker_user: cdk2128
+docker_config_dir: /usr/src/docker/elk
+```
+
+Next, Ansible needs to be able to connect to the localhost using ssh and act as a super user. This is easiest if you have a private certificate file. Use ssh-copy-id to easily achieve that if you have not done so yet.
 
 Example:
 ```
@@ -80,19 +175,14 @@ Last login: Tue Aug 20 15:53:32 2024 from ::1
 $ 
 ```
 
-Now all we have to do is add the user to not request a password when sudoing to root. Use `sudo visudo` and add the following entry below the `root ALL = (ALL) ALL` entry. Replace with your local user name:
+Now all we have to do is add the user to not request a password when sudoing to root:
 ```
-...
-# root and users in group wheel can run anything on any machine as any user
-root            ALL = (ALL) ALL
-%admin          ALL = (ALL) ALL
-christian.klein  ALL=(ALL:ALL) NOPASSWD: ALL
-...
+echo "%${USER} ALL=(ALL) NOPASSWD:ALL" | sudo EDITOR='tee ' visudo --quiet --file=/etc/sudoers.d/passwordless-sudo
 ```
 
 Now, you should be able to connect to the local host and sudo up without passwords:
 ```
-$ christian.klein@localhost
+$ ssh christian.klein@localhost
 Last login: Tue Aug 20 15:54:27 2024 from ::1
 
 $ sudo -i

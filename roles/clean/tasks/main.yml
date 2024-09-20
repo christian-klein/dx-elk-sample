@@ -1,7 +1,13 @@
 ---
+
+# - name: Ensure docker is called via binary path on MACOS
+- name: Setting docker path fact if OS is MacOS
+  ansible.builtin.set_fact:
+    docker_path: "{% if ansible_facts['os_family']=='Darwin' %}{{docker_path_mac}}{% endif %}"
+
 - name: "Remove containers"
   shell: > 
-          {{docker_path_mac}}docker compose 
+          {{docker_path}}docker compose 
           -f  {{docker_config_dir}}/{{docker_file}} 
           --profile all
           down
@@ -9,7 +15,7 @@
 
 - name: "Remove volumes"
   shell: > 
-          {{docker_path_mac}}docker volume
+          {{docker_path}}docker volume
           rm
           {{ compose_project_name }}_certs {{ compose_project_name }}_esdata01 {{ compose_project_name }}_kibanadata {{ compose_project_name }}_logstashdata01 {{ compose_project_name }}_dx_profile  {{ compose_project_name }}_filebeatdata01  
   register: dx_stop_output

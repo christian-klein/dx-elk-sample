@@ -9,6 +9,17 @@
     - test
     - prep
 
+# - name: Ensure docker is called via binary path on MACOS
+- name: Setting docker path fact if OS is MacOS
+  ansible.builtin.set_fact:
+    docker_path: "{% if ansible_facts['os_family']=='Darwin' %}{{docker_path_mac}}{% endif %}"
+  tags:
+    - elk
+    - dx
+    - nfs
+    - test
+    - prep
+
 - name: "DX | Install python packages"
   ansible.builtin.pip:
     name: "{{ item }}"

@@ -93,6 +93,7 @@ filebeat_data_dir: "filebeatdata01"
 # ###############################################
 # ##      DX                                   ##
 # ###############################################
+dx_hostname: "localhost"
 dx_profile_dir: /opt/HCL/wp_profile
 dx_cell: dockerCell
 dx_node: dockerNode

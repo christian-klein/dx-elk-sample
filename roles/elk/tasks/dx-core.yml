@@ -84,6 +84,7 @@
 
 - name: DX | Pull images
   community.docker.docker_compose_v2_pull:
+    project_src: "{{docker_config_dir}}/"
     files:
       - docker-dx.yaml
     profiles: all
@@ -91,7 +92,6 @@
   tags:
     - start
     - dx
-    - test
 
 - name: "DX | MACOS | Pull images"
   community.docker.docker_compose_v2:
@@ -105,7 +105,6 @@
   tags:
     - start
     - dx
-    - test
 
 # #################################### Start DX Containers           ####################################
 
@@ -116,40 +115,24 @@
     - prep
     - dx
 
-- name: DX | HCL DX Container starting
-  community.docker.docker_compose_v2:
-    project_src: "{{docker_config_dir}}/"
-    files:
-      - docker-dx.yaml
-    profiles: dx
-    services: 
-      - dx
-    wait: true
-    wait_timeout: 6000 # 10 min timout
-  when: not ansible_os_family == "Darwin"
-  tags:
-    - start
-    - dx
-
-- name: "DX | MACOS | Create and start HCL DX Services"
-  community.docker.docker_compose_v2:
-    project_src: "{{docker_config_dir}}/"
-    files:
-      - docker-dx.yaml
-    profiles: dx
-    services: 
-      - dx
-    docker_cli: /usr/local/bin/docker
-    wait: true
-    wait_timeout: 6000 # 5min timout
-  when: ansible_os_family == "Darwin"
-  failed_when: false # This is a workaround for the issue with the docker-compose module on MacOS
+- name: "DX | Create and start HCL DX Service"
+  shell: > 
+          {{docker_path}}docker compose 
+          -f  {{docker_config_dir}}/docker-dx.yaml 
+          --profile dx
+          up
+          -d
+          dx_setup
+          dx
+  failed_when: False
+  register: dx_up_output
   tags:
     - start
     - dx
 
 - name: "DX | Wait for port 10039 to become open on the host"
   ansible.builtin.wait_for:
+    host: "{{ dx_hostname }}"
     port: 10039
     timeout: 6000
     sleep: 5
@@ -157,6 +140,9 @@
     - postconfig
     - wsadmin
     - dx
+    - test
+
+- meta: end_play
 
 - name: DX | HCL DX Contianer started
   debug:
@@ -167,9 +153,14 @@
 
 # #################################### Configure DX Containers       ####################################
 
+# - name: "DX | Wait for setupCmdLine.sh file to be avaialbe..."
+  # /opt/HCL/wp_profile/bin/setupCmdLine.sh
+
+# - meta: end_play
+
 - name: "DX | Run the wsadmin script inside the docker container"
   shell: > 
-          {{docker_path_mac}}docker compose 
+          {{docker_path}}docker compose 
           -f  {{docker_config_dir}}/{{docker_file}} 
           exec dx 
           /opt/HCL/AppServer/bin/wsadmin.sh 
@@ -184,6 +175,7 @@
     - postconfig
     - wsadmin
     - dx
+    - test
 
 - name: "DX | Show results"
   ansible.builtin.debug:
@@ -214,7 +206,7 @@
 
 - name: "DX | Stop DX"
   shell: > 
-          {{docker_path_mac}}docker compose 
+          {{docker_path}}docker compose 
           -f  {{docker_config_dir}}/{{docker_file}} 
           exec dx 
           /opt/HCL/wp_profile/bin/stopServer.sh WebSphere_Portal -username wasadmin -password wasadmin
@@ -240,7 +232,7 @@
 
 - name: "DX | Start DX"
   shell: > 
-          {{docker_path_mac}}docker compose 
+          {{docker_path}}docker compose 
           -f  {{docker_config_dir}}/{{docker_file}} 
           exec dx 
           /opt/HCL/wp_profile/bin/startServer.sh WebSphere_Portal
@@ -265,63 +257,29 @@
 # #################################### Start Log Shipping Containers ####################################
 
 - name: "DX | Create and start LogViewer container"
-  community.docker.docker_compose_v2:
-    project_src: "{{docker_config_dir}}/"
-    files:
-      - docker-dx.yaml
-    profiles: dx
-    services: 
-      - dxlogviewer
-    wait: true
-    wait_timeout: 600 # 10 min timout
-  when: not ansible_os_family == "Darwin"
-  tags:
-    - start
-    - dx
-
-- name: "DX | MACOS | Create and start LogViewer container"
-  community.docker.docker_compose_v2:
-    project_src: "{{docker_config_dir}}/"
-    files:
-      - docker-dx.yaml
-    profiles: dx
-    services: 
-      - dxlogviewer
-    wait: true
-    wait_timeout: 600 # 10 min timout
-  when: ansible_os_family == "Darwin"
-  failed_when: false # This is a workaround for the issue with the docker-compose module on MacOS
+  shell: > 
+          {{docker_path}}docker compose 
+          -f  {{docker_config_dir}}/docker-dx.yaml 
+          --profile dx
+          up
+          -d
+          dxlogviewer
+  failed_when: False
+  register: dxlogviewer_up_output
   tags:
     - start
     - dx
 
 - name: "DX | Create and start FileBeat Container"
-  community.docker.docker_compose_v2:
-    project_src: "{{docker_config_dir}}/"
-    files:
-      - docker-dx.yaml
-    profiles: all
-    services: 
-      - dxfilebeat
-    wait: true
-    wait_timeout: 600 # 10 min timout
-  when: not ansible_os_family == "Darwin"
-  tags:
-    - start
-    - dx
-
-- name: "DX | MACOS | Create and start FileBeat Container"
-  community.docker.docker_compose_v2:
-    project_src: "{{docker_config_dir}}/"
-    files:
-      - docker-dx.yaml
-    profiles: all
-    services: 
-      - dxfilebeat
-    wait: true
-    wait_timeout: 600 # 10 min timout
-  when: ansible_os_family == "Darwin"
-  failed_when: false # This is a workaround for the issue with the docker-compose module on MacOS
+  shell: > 
+          {{docker_path}}docker compose 
+          -f  {{docker_config_dir}}/docker-dx.yaml 
+          up
+          -d
+          dxfilebeat
+          --profile dx
+  failed_when: False
+  register: dxlogviewer_up_output
   tags:
     - start
     - dx

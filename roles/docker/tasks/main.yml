@@ -1,28 +1,22 @@
 ---
-# - debug:
-#     msg: "{{ansible_facts['distribution']}}"
-# - include: packages-redhat.yml
-#   when: ansible_os_family == "RedHat"
-
-- debug:
+- name: "OS Family:"
+  debug:
     msg: "{{ansible_os_family}}"
-- block:
-  - name:  MACOS | Ensure docker is running
-    ansible.builtin.shell: "/usr/local/bin/docker ps"
-    register: ret
-    failed_when: > 
-      (ret.stderr != '')
-    changed_when: False
-    args:
-      executable: /bin/zsh
-  when: ansible_os_family == "Darwin"
 
-- name: Ensure docker deamon is running
-  service:
-    name: docker
-    state: started
-  when: not ansible_os_family == "Darwin"
+# - name: Ensure docker is called via binary path on MACOS
+- name: Setting docker path fact if OS is MacOS
+  ansible.builtin.set_fact:
+    docker_path: "{% if ansible_facts['os_family']=='Darwin' %}{{docker_path_mac}}{% endif %}"
 
-# - name: Create docker network
-#   docker_network:
-#     name: "{{ network_name }}"
+# Changed this from a service check to a shell check to support MacOS and WSL2
+- name: "Ensure docker is running"
+  shell: > 
+          {{docker_path}}docker ps
+  failed_when: > 
+    (wsadmin_output.stderr != '')
+  register: wsadmin_output
+
+# - debug:
+#     msg: "{{wsadmin_output}}"
+
+# - meta: end_play

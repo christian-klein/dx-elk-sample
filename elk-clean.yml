@@ -1,4 +1,6 @@
 - hosts: "{{ ehosts | default('prod') }}"
+  vars_files:
+    - "../.ansible_pwd"
   become: true
   roles:
   - clean
